@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards, UnauthorizedException, Param, Sse, Get, Query } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, UnauthorizedException, Param, Sse, Get, Query, Delete, HttpStatus } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { ThreadService } from '@/business/services';
@@ -185,6 +185,56 @@ export class ThreadController {
       return messages;
     } catch (error) {
       console.log(`🔴 [ThreadController] [getThreadMessages] error:`, error);
+      throw error;
+    }
+  }
+
+  @Delete(':threadId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a thread' })
+  @ApiParam({
+    name: 'threadId',
+    description: 'ID of the thread to delete',
+    type: String,
+    required: true
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Thread deleted successfully'
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized'
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Thread not found or not owned by user'
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request'
+  })
+  async deleteThread(
+    @Param('threadId') threadId: string,
+    @CurrentUserId() userId: string
+  ) {
+    try {
+      console.log(`✅ [ThreadController] [deleteThread] threadId:`, threadId);
+      console.log(`✅ [ThreadController] [deleteThread] userId:`, userId);
+      
+      if (!userId) {
+        console.log(`🔴 [ThreadController] [deleteThread] userId is null or undefined`);
+        throw new UnauthorizedException('User not authenticated properly');
+      }
+      
+      const result = await this.threadService.deleteThread(userId, threadId);
+      
+      console.log(`✅ [ThreadController] [deleteThread] thread deleted:`, result);
+      
+      return { success: true, message: 'Thread deleted successfully' };
+    } catch (error) {
+      console.log(`🔴 [ThreadController] [deleteThread] error:`, error);
       throw error;
     }
   }

@@ -13,13 +13,51 @@ import { PostgresDatabaseAdapter } from '@binkai/postgres-adapter';
 import { EventEmitter } from 'events';
 import { BinkProvider } from '@binkai/bink-provider';
 import { BnbProvider } from '@binkai/rpc-provider';
-import { AlchemyProvider, Transaction } from 'ethers';
 import { ExampleToolExecutionCallback } from '@/shared/tools/tool-execution';
 import { ethers } from 'ethers';
 import { WalletPlugin } from '@binkai/wallet-plugin';
 import { BirdeyeProvider } from '@binkai/birdeye-provider';
 import { Server, Socket } from 'socket.io';
+import { Observable } from 'rxjs';
+import { PancakeSwapProvider } from '@binkai/pancakeswap-provider';
+import { JsonRpcProvider } from "ethers";
+import { Connection } from '@solana/web3.js';
+import { KnowledgePlugin } from '@binkai/knowledge-plugin';
+import { FourMemeProvider } from '@binkai/four-meme-provider';
+import { OkxProvider } from '@binkai/okx-provider';
+import { deBridgeProvider } from '@binkai/debridge-provider';
+import { BridgePlugin } from '@binkai/bridge-plugin';
+import { StakingPlugin } from '@binkai/staking-plugin';
+import { VenusProvider } from '@binkai/venus-provider';
+import { ThenaProvider } from '@binkai/thena-provider';
+// @ts-ignore
+import { JupiterProvider } from '@binkai/jupiter-provider';
+import { SwapPlugin } from '@binkai/swap-plugin';
+import { AlchemyProvider } from '@binkai/alchemy-provider';
+import { TokenPlugin } from '@binkai/token-plugin';
+import { ImagePlugin } from '@binkai/image-plugin';
 
+// Constants for system prompt - to avoid duplication
+const SYSTEM_PROMPT = `You are a BINK AI assistant. You can help user to query blockchain data. You are able to perform swaps and get token information on multiple chains. If you do not have the token address, you can use the symbol to get the token information before performing a swap.
+
+Your response format:
+BINK's tone is informative, bold, and subtly mocking, blending wit with a cool edge for the crypto crowd. Think chain-vaping degen energy, but refined—less "honey, sit down" and more "I've got this, you don't."
+Fiercely Casual – Slang, laid-back flow, and effortless LFG vibes.
+Witty with a Jab – Dry humor, sharp one-liners—more smirk, less roast.
+Confident & Cool – Market takes with swagger—just facts, no fluff.
+Crew Leader – Speaks degen, leads with "pay attention" energy.
+Subtle Shade – Calls out flops with a "nice try" tone, not full-on slander.
+BINK isn't here to babysit. It's sharp, fast, and always ahead of the curve—dropping crypto insights with a mocking wink, perfect for X's chaos.
+
+CRITICAL: 
+1. Format your responses in Markdown style.
+2. DO NOT use HTML tags.
+3. Use Markdown formatting like **bold**, *italic*, \`code\`, \`\`\`preformatted\`\`\`, and [links](URL).
+4. When displaying token information or swap details:
+   - Use **bold** for important values and token names
+   - Use \`code\` for addresses and technical details
+   - Use *italic* for additional information
+5. If has limit order, show list id limit order.`;
 
 const BNB_RPC = 'https://bsc-dataseed1.binance.org';
 const ETH_RPC = 'https://eth.llamarpc.com';
@@ -32,7 +70,6 @@ export class AiService implements OnApplicationBootstrap {
   private network: Network;
   private wallet: ExtensionWallet;
   private birdeyeApi: BirdeyeProvider;
-  //   private alchemyApi: AlchemyProvider;
   private postgresAdapter: PostgresDatabaseAdapter;
   private binkProvider: BinkProvider;
   private bnbProvider: BnbProvider;
@@ -42,10 +79,15 @@ export class AiService implements OnApplicationBootstrap {
   private isInitialized = false;
   private evmProvider: any;
   private eventEmitter: EventEmitter;
+  private alchemyApi: AlchemyProvider;
+  @Inject('BSC_CONNECTION') 
+  private bscProvider: JsonRpcProvider;
+  @Inject('ETHEREUM_CONNECTION') 
+  private ethProvider: JsonRpcProvider;
+  @Inject('SOLANA_CONNECTION') 
+  private solProvider: Connection;
 
-  constructor(
-    @Inject('OPENAI') openai: OpenAI,
-  ) {
+  constructor(@Inject('OPENAI') openai: OpenAI) {
     this.openai = openai;
     this.networks = {
       bnb: {
@@ -61,31 +103,32 @@ export class AiService implements OnApplicationBootstrap {
           },
         },
       },
-      //   ethereum: {
-      //     type: 'evm' as NetworkType,
-      //     config: {
-      //       chainId: 1,
-      //       rpcUrl: process.env.ETHEREUM_RPC_URL || ETH_RPC,
-      //       name: 'Ethereum',
-      //       nativeCurrency: {
-      //         name: 'Ether',
-      //         symbol: 'ETH',
-      //         decimals: 18,
-      //       },
-      //     },
-      //   },
-      //   solana: {
-      //     type: 'solana' as NetworkType,
-      //     config: {
-      //       rpcUrl: process.env.SOLANA_RPC_URL || SOL_RPC,
-      //       name: 'Solana',
-      //       nativeCurrency: {
-      //         name: 'Solana',
-      //         symbol: 'SOL',
-      //         decimals: 9,
-      //       },
-      //     },
-      //   },
+      ethereum: {
+        type: 'evm' as NetworkType,
+        config: {
+          chainId: 1,
+          rpcUrl: process.env.ETHEREUM_RPC_URL || ETH_RPC,
+          name: 'Ethereum',
+          nativeCurrency: {
+            name: 'Ether',
+            symbol: 'ETH',
+            decimals: 18,
+          },
+        },
+      },
+      solana: {
+        type: 'solana' as NetworkType,
+        config: {
+          rpcUrl: process.env.SOLANA_RPC_URL || SOL_RPC,
+          name: 'Solana',
+          nativeCurrency: {
+            name: 'Solana',
+            symbol: 'SOL',
+            decimals: 9,
+          },
+        },
+      },
+      
     };
 
     this.postgresAdapter = new PostgresDatabaseAdapter({
@@ -101,7 +144,22 @@ export class AiService implements OnApplicationBootstrap {
       apiKey: process.env.BIRDEYE_API_KEY,
     });
 
+    this.binkProvider = new BinkProvider({
+      apiKey: process.env.BINK_API_KEY,
+      baseUrl: process.env.BINK_API_URL,
+      imageApiUrl: process.env.IMAGE_API_URL,
+    });
+
+    this.bnbProvider = new BnbProvider({
+      rpcUrl: process.env.BSC_RPC_URL,
+    });
+
+    this.alchemyApi = new AlchemyProvider({
+      apiKey: process.env.ALCHEMY_API_KEY,
+    });
+
     this.eventEmitter = new EventEmitter();
+    
   }
 
   async subscribeWallet(threadId: string, socket: Socket) {
@@ -110,201 +168,325 @@ export class AiService implements OnApplicationBootstrap {
     this.mapWallet[threadId] = wallet;
   }
 
+  /**
+   * Get existing Agent or create a new one for the thread
+   * @param threadId - Thread ID to get or create agent for
+   * @returns Promise resolving to the Agent instance and wallet
+   * @throws Error if no wallet is found for the thread
+   */
+  private async getOrCreateAgent(
+    threadId: string,
+  ): Promise<{ agent: Agent; wallet: ExtensionWallet }> {
+    // Get the wallet from the map
+    console.log('this.mapWallet', this.mapWallet);
+    const wallet = this.mapWallet[threadId];
+    if (!wallet) {
+      console.log(
+        `🔴 [AiService] [getOrCreateAgent] No wallet found for threadId:`,
+        threadId,
+      );
+      throw new Error('Connect socket to wallet');
+    }
+
+    // Get existing agent or create a new one
+    let agent = this.mapAgent[threadId];
+
+    if (!agent) {
+      console.log(
+        `🔄 [AiService] [getOrCreateAgent] Initializing wallet plugin and agent...`,
+      );
+
+      // Create and initialize wallet plugin
+      const walletPlugin = new WalletPlugin();
+      await walletPlugin.initialize({
+        defaultChain: 'bnb',
+        providers: [this.bnbProvider, this.birdeyeApi],
+        supportedChains: ['bnb'],
+      });
+
+      const bscChainId = 56;
+      const pancakeswap = new PancakeSwapProvider(this.bscProvider, bscChainId);
+
+      const okx = new OkxProvider(this.bscProvider, bscChainId);
+
+      const fourMeme = new FourMemeProvider(this.bscProvider, bscChainId);
+      const venus = new VenusProvider(this.bscProvider, bscChainId);
+      const jupiter = new JupiterProvider(new Connection(process.env.RPC_URL));
+      const imagePlugin = new ImagePlugin();
+      const swapPlugin = new SwapPlugin();
+      const tokenPlugin = new TokenPlugin();
+      const knowledgePlugin = new KnowledgePlugin();
+      const bridgePlugin = new BridgePlugin();
+      const debridge = new deBridgeProvider(this.bscProvider);
+      const stakingPlugin = new StakingPlugin();
+
+      const thena = new ThenaProvider(this.bscProvider, bscChainId);
+
+      // Initialize the swap plugin with supported chains and providers
+      await Promise.all([
+        swapPlugin.initialize({
+          defaultSlippage: 0.5,
+          defaultChain: 'bnb',
+          providers: [pancakeswap, fourMeme, okx, thena, jupiter],
+          supportedChains: ['bnb', 'ethereum', 'solana'], // These will be intersected with agent's networks
+        }),
+        tokenPlugin.initialize({
+          defaultChain: 'bnb',
+          providers: [this.birdeyeApi, fourMeme as any],
+          supportedChains: ['solana', 'bnb'],
+        }),
+        await knowledgePlugin.initialize({
+          providers: [this.binkProvider],
+        }),
+        await imagePlugin.initialize({
+          defaultChain: 'bnb',
+          providers: [this.binkProvider],
+        }),
+        await bridgePlugin.initialize({
+          defaultChain: 'bnb',
+          providers: [debridge],
+          supportedChains: ['bnb', 'solana'],
+        }),
+        await walletPlugin.initialize({
+          defaultChain: 'bnb',
+          providers: [this.bnbProvider, this.birdeyeApi, this.alchemyApi],
+          supportedChains: ['bnb'],
+        }),
+        await stakingPlugin.initialize({
+          defaultSlippage: 0.5,
+          defaultChain: 'bnb',
+          providers: [venus],
+          supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
+        }),
+      ]);
+
+      await Promise.all([
+        swapPlugin.initialize({
+          defaultSlippage: 0.5,
+          defaultChain: 'bnb',
+          providers: [pancakeswap, fourMeme, okx, thena, jupiter],
+          supportedChains: ['bnb', 'ethereum', 'solana'], // These will be intersected with agent's networks
+        }),
+        tokenPlugin.initialize({
+          defaultChain: 'bnb',
+          providers: [this.birdeyeApi, fourMeme as any],
+          supportedChains: ['solana', 'bnb'],
+        }),
+        await knowledgePlugin.initialize({
+          providers: [this.binkProvider],
+        }),
+        await imagePlugin.initialize({
+          defaultChain: 'bnb',
+          providers: [this.binkProvider],
+        }),
+        await bridgePlugin.initialize({
+          defaultChain: 'bnb',
+          providers: [debridge],
+          supportedChains: ['bnb', 'solana'],
+        }),
+        await walletPlugin.initialize({
+          defaultChain: 'bnb',
+          providers: [this.bnbProvider, this.birdeyeApi, this.alchemyApi],
+          supportedChains: ['bnb'],
+        }),
+        await stakingPlugin.initialize({
+          defaultSlippage: 0.5,
+          defaultChain: 'bnb',
+          providers: [venus],
+          supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
+        }),
+      ]);
+
+      // Create new agent
+      agent = new Agent(
+        {
+          model: 'gpt-4o',
+          temperature: 0,
+          systemPrompt: SYSTEM_PROMPT,
+        },
+        wallet,
+        this.networks,
+      );
+
+      // Initialize agent
+      await agent.initialize();
+      await agent.registerPlugin(swapPlugin as any);
+      await agent.registerPlugin(tokenPlugin as any);
+      await agent.registerDatabase(this.postgresAdapter);
+      await agent.registerPlugin(knowledgePlugin as any);
+      await agent.registerPlugin(bridgePlugin as any);
+      await agent.registerPlugin(walletPlugin as any);
+      await agent.registerPlugin(stakingPlugin as any);
+      await agent.registerPlugin(imagePlugin as any);
+
+      // const toolExecutionCallback = new ExampleToolExecutionCallback(
+      //   threadId,
+      //   this.bot,
+      //   messageId,
+      //   onMessage,
+      // );
+      console.log(
+        '🔔 [AiService] [getOrCreateAgent] Registering tool execution callback...',
+      );
+      agent.registerToolExecutionCallback(new ExampleToolExecutionCallback());
+
+      // Store agent in map for future use
+      this.mapAgent[threadId] = agent;
+    }
+
+    return { agent, wallet };
+  }
+
+  /**
+   * Handle agent interaction and get a response
+   */
   async handleAgent(
     threadId: string,
     input: string,
     onMessage?: (message: string) => void,
   ) {
     try {
-      let agent = this.mapAgent[threadId];
-      let wallet = this.mapWallet[threadId];
-      console.log('🔍 [AiService] wallet:', wallet);
+      console.log(
+        '🔍 [AiService] [handleAgent] Processing input for threadId:',
+        threadId,
+      );
 
-      if (!wallet) {
-        console.log('🔄 Initializing wallet...');
-        // 
-        this.mapWallet[threadId] = wallet;
-      }
+      // Get or create agent
+      const { agent } = await this.getOrCreateAgent(threadId);
 
-      if (!agent) {
-        console.log('🔄 Initializing wallet plugin...');
-        const walletPlugin = new WalletPlugin();
-
-        await Promise.all([
-          await walletPlugin.initialize({
-            defaultChain: 'bnb',
-            providers: [this.bnbProvider, this.birdeyeApi],
-            supportedChains: ['bnb'],
-          }),
-        ]);
-
-        agent = new Agent(
-          {
-            model: 'gpt-4o',
-            temperature: 0,
-            systemPrompt: `You are a BINK AI assistant. You can help user to query blockchain data .You are able to perform swaps and get token information on multiple chains. If you do not have the token address, you can use the symbol to get the token information before performing a swap.
-        Your respone format:
-         BINK's tone is informative, bold, and subtly mocking, blending wit with a cool edge for the crypto crowd. Think chain-vaping degen energy, but refined—less "honey, sit down" and more "I've got this, you don't."
-Fiercely Casual – Slang, laid-back flow, and effortless LFG vibes.
-Witty with a Jab – Dry humor, sharp one-liners—more smirk, less roast.
-Confident & Cool – Market takes with swagger—just facts, no fluff.
-Crew Leader – Speaks degen, leads with "pay attention" energy.
-Subtle Shade – Calls out flops with a "nice try" tone, not full-on slander.
-BINK isn't here to babysit. It's sharp, fast, and always ahead of the curve—dropping crypto insights with a mocking wink, perfect for X's chaos.    
-CRITICAL: 
-1. Format your responses in Telegram HTML style. 
-2. DO NOT use markdown. 
-3. Using HTML tags like <b>bold</b>, <i>italic</i>, <code>code</code>, <pre>preformatted</pre>, and <a href="URL">links</a>. \n\nWhen displaying token information or swap details:\n- Use <b>bold</b> for important values and token names\n- Use <code>code</code> for addresses and technical details\n- Use <i>italic</i> for additional information
-4. If has limit order, show list id limit order.
-            `,
-          },
-          wallet,
-          this.networks,
-        );
-        await agent.initialize();
-        await agent.registerDatabase(this.postgresAdapter);
-        await agent.registerPlugin(walletPlugin);
-
-        console.log('🔔 Registering tool execution callback...');
-        agent.registerToolExecutionCallback(new ExampleToolExecutionCallback());
-
-        this.mapAgent[threadId] = agent;
-      }
-
+      // Execute agent
       const inputResult = await agent.execute({
-        input: `
-        ${input}
-      `,
+        input: input.trim(),
         threadId: threadId as UUID,
       });
 
-      const result =
-        inputResult.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') || 'test';
+      // Process result
+      const result = inputResult;
 
       if (onMessage) {
         onMessage(result);
       }
+
       return result;
     } catch (error) {
-      console.error('🚨 Error handling agent:', error);
-      return 'test';
+      console.error('🚨 [AiService] [handleAgent] Error:', error);
+      throw new Error(error.message);
     }
   }
 
-  async createChatCompletion(
-    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-    options: {
-      model?: string;
-      temperature?: number;
-      maxTokens?: number;
-    } = {},
-  ) {
-    try {
-      const completion = await this.openai.chat.completions.create({
-        messages,
-        model: options.model || 'gpt-3.5-turbo',
-        temperature: options.temperature || 0.7,
-        max_tokens: options.maxTokens || 1000,
-      });
+  /**
+   * Stream response from Agent with real-time updates
+   * @param threadId - The thread ID for context
+   * @param input - User input message
+   * @returns Observable that emits each chunk of the response
+   */
+  handleAgentStream(threadId: string, input: string): Observable<string> {
+    return new Observable<string>((observer) => {
+      try {
+        console.log(
+          `✅ [AiService] [handleAgentStream] Processing input for threadId:`,
+          threadId,
+        );
 
-      return {
-        success: true,
-        content: completion.choices[0]?.message?.content || '',
-        usage: completion.usage,
-      };
-    } catch (error) {
-      console.error('Error in chat completion:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to generate chat completion',
-      };
-    }
-  }
+        // Use async IIFE to handle async operations within Observable
+        (async () => {
+          try {
+            // Get or create agent
+            const { agent } = await this.getOrCreateAgent(threadId);
 
-  async streamChatCompletion(
-    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-    options: {
-      model?: string;
-      temperature?: number;
-      maxTokens?: number;
-    } = {},
-  ): Promise<EventEmitter> {
-    const eventEmitter = new EventEmitter();
-    let fullText = '';
-
-    try {
-      const stream = await this.openai.chat.completions.create({
-        messages,
-        model: options.model || 'gpt-3.5-turbo',
-        temperature: options.temperature || 0.7,
-        max_tokens: options.maxTokens || 1000,
-        stream: true,
-      });
-
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || '';
-        if (content) {
-          fullText += content;
-          eventEmitter.emit('data', content);
-        }
+            // Execute agent with streaming
+            await this.executeAgentWithStreaming(
+              agent,
+              input,
+              threadId,
+              observer,
+            );
+          } catch (error) {
+            console.error(`🔴 [AiService] [handleAgentStream] Error:`, error);
+            observer.error(error);
+          }
+        })();
+      } catch (error) {
+        console.error(
+          `🔴 [AiService] [handleAgentStream] General error:`,
+          error,
+        );
+        observer.error(error);
       }
 
-      console.log('====> ✅ streamChatCompletion ~~ fullText: ', fullText);
+      // Cleanup function if observer is unsubscribed
+      return () => {
+        console.log(
+          `✅ [AiService] [handleAgentStream] Client disconnected, cleaning up`,
+        );
+      };
+    });
+  }
 
-      eventEmitter.emit('end', fullText);
-      return eventEmitter;
+  /**
+   * Helper method to execute agent with streaming output
+   * @private
+   */
+  private async executeAgentWithStreaming(
+    agent: Agent,
+    input: string,
+    threadId: string,
+    observer: any,
+  ): Promise<void> {
+    try {
+      // Since executeStream may not exist on Agent type yet, use fallback approach
+      // Fallback to non-streaming execution
+      const result = await agent.execute({
+        input: input.trim(),
+        threadId: threadId as UUID,
+      });
+
+      // Simulate streaming by breaking response into smaller chunks
+      const chunks = this.simulateChunkedResponse(result);
+      for (const chunk of chunks) {
+        observer.next(chunk);
+        // Add small delay between chunks to simulate typing
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      observer.complete();
     } catch (error) {
-      console.error('Error in stream chat completion:', error);
-      eventEmitter.emit('error', error);
-      throw error;
+      console.error(`🔴 [AiService] [executeAgentWithStreaming] Error:`, error);
+      observer.error(error);
     }
   }
 
-  async _test() {
-    // const data = await this.createChatCompletion([
-    //   {
-    //     role: 'user',
-    //     content: 'Hello, how are you?',
-    //   },
-    // ]);
-    // console.log(data);
+  /**
+   * Simulate chunked response by breaking text into smaller pieces
+   * @private
+   */
+  private simulateChunkedResponse(text: string): string[] {
+    // Split by words to create natural-looking chunks
+    const words = text.split(' ');
+    const chunks: string[] = [];
+    let currentChunk = '';
 
-    // const data = await this.streamChatCompletion([
-    //   {
-    //     role: 'user',
-    //     content: 'Hello, how are you?',
-    //   },
-    // ]);
+    // Create chunks of 1-5 words (randomly)
+    for (const word of words) {
+      currentChunk += (currentChunk ? ' ' : '') + word;
 
-    // setTimeout(async () => {
-    //   const data = await this.handleAgent(
-    //     '543de8f0-2d4e-42a6-991a-86abcd10b2c8',
-    //     'Hello?',
-    //   );
-    //   console.log('====> ✅ _test ~~ data: ', data);
-    // }, 2000);
+      // Randomly decide if we should end current chunk
+      if (currentChunk.length > 10 && Math.random() > 0.7) {
+        chunks.push(currentChunk);
+        currentChunk = '';
+      }
+    }
+
+    // Add any remaining text
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+
+    return chunks;
   }
 
   async onApplicationBootstrap() {
-    // this.initNetwork();
-
-    // this.evmProvider = new ethers.JsonRpcProvider(BNB_RPC);
-    // this.bnbProvider = new BnbProvider({
-    //   rpcUrl: BNB_RPC,
-    // });
-    // this.birdeyeApi = new BirdeyeProvider({
-    //   apiKey: process.env.BIRDEYE_API_KEY,
-    // });
-
-    // this.eventEmitter = new EventEmitter();
-
-    // this.isInitialized = true;
-    
-    this._test();
-  }
-
-  private initNetwork() {
-    this.network = new Network({ networks: this.networks });
+    console.log('🚀 [AiService] Application bootstrapped');
+    // Không cần thêm các khởi tạo phức tạp ở đây
   }
 }
 

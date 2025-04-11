@@ -1,6 +1,6 @@
 import { Module, OnApplicationBootstrap } from '@nestjs/common';
 import { DatabaseModule } from '@/database';
-import { HealthController, AuthController, UserController, ThreadController } from '@/api/controllers';
+import { HealthController, AuthController, UserController, ThreadController, ChatController } from '@/api/controllers';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { QueueModule } from '@/queue/queue.module';
@@ -15,7 +15,7 @@ import { FormatResponseInterceptor, HttpCacheInterceptor } from './interceptors'
 import { BusinessModule } from '@/business/business.module';
 import { WebsocketModule } from 'modules/websocket/websocket.module';
 
-const controllers = [HealthController, AuthController, UserController, ThreadController];
+const controllers = [HealthController, AuthController, UserController, ThreadController, ChatController];
 
 @Module({
   imports: [
