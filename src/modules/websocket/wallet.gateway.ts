@@ -129,30 +129,22 @@ export class WalletGateway
       console.error(`🔴 Error from client ${client.id}:`, err);
     });
 
-    // Set up disconnect handling
-    client.on('disconnect', (reason) => {
-      console.log(`🔴 Client ${client.id} disconnected: ${reason}`);
-
-      // Delete mapping when client disconnects
-      const clientUuid = this.clientIdToUuid.get(client.id);
-      if (clientUuid) {
-        this.uuidToClientId.delete(clientUuid);
-        this.clientIdToUuid.delete(client.id);
-      }
-
-      // Cleanup any wallet instances for this client
-      this.walletInstances.delete(client.id);
-      this.clientHandlers.delete(client.id);
-    });
+    // No disconnect handling here, let handleDisconnect do its job
   }
 
   handleDisconnect(client: Socket) {
     console.log(`🔴 Client disconnected: ${client.id}`);
 
     // Delete mapping when client disconnects
-    const clientUuid = this.clientIdToUuid.get(client.id);
-    if (clientUuid) {
-      this.uuidToClientId.delete(clientUuid);
+    const threadId = this.clientIdToUuid.get(client.id);
+    console.log('🔴 Thread ID:', threadId);
+    console.log('🔴 data:', {
+      uuidToClientId: this.uuidToClientId,
+      clientIdToUuid: this.clientIdToUuid,
+    });
+    if (threadId) {
+      this.aiService.unsubscribeWallet(threadId);
+      this.uuidToClientId.delete(threadId);
       this.clientIdToUuid.delete(client.id);
     }
 
@@ -347,5 +339,9 @@ export class WalletGateway
       );
       throw error;
     }
+  }
+
+  async onApplicationBootstrap() {
+    console.log('✅ Wallet Gateway onApplicationBootstrap');
   }
 }

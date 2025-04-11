@@ -90,7 +90,7 @@ export class ChatController {
     @Res() response: Response,
   ): Promise<void> {
     try {
-      console.log(`✅ [ChatController] [streamChat] chatRequestDto:`, chatRequestDto);
+      // console.log(`✅ [ChatController] [streamChat] chatRequestDto:`, chatRequestDto);
       
       if (!userId) {
         console.log(`🔴 [ChatController] [streamChat] userId is null or undefined`);
