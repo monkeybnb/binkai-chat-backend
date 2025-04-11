@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ThreadRepository } from '../../database/repositories';
 import { MessageRepository } from '../../database/repositories';
 import { CreateThreadDto } from '@/api/dtos';
@@ -144,59 +144,59 @@ export class ThreadService {
             console.log(`🔍 [ThreadService] [streamMessage] Sending ${messages.length} messages to AI`);
             
             // Use aiService.streamChatCompletion with message history
-            this.aiService.streamChatCompletion(messages)
-              .then(eventEmitter => {
-                // Save reference for cleanup
-                emitter = eventEmitter;
+//             this.aiService.streamChatCompletion(messages)
+//               .then(eventEmitter => {
+//                 // Save reference for cleanup
+//                 emitter = eventEmitter;
                 
-                // Variables to collect full response
-                let responseContent = '';
+//                 // Variables to collect full response
+//                 let responseContent = '';
                 
-                // Handle data chunks
-                emitter.on('data', (chunk: string) => {
-                  responseContent += chunk;
-                  observer.next(chunk);
-                });
+//                 // Handle data chunks
+//                 emitter.on('data', (chunk: string) => {
+//                   responseContent += chunk;
+//                   observer.next(chunk);
+//                 });
 
-                // Handle errors
-                emitter.on('error', (error) => {
-                  console.log(`🔴 [ThreadService] [streamMessage] AI stream error:`, error);
-                  clearTimeout(timeoutId);
-                  observer.error(error);
-                });
+//                 // Handle errors
+//                 emitter.on('error', (error) => {
+//                   console.log(`🔴 [ThreadService] [streamMessage] AI stream error:`, error);
+//                   clearTimeout(timeoutId);
+//                   observer.error(error);
+//                 });
 
-                // Handle completion
-                emitter.on('end', async (finalText: string) => {
-                  clearTimeout(timeoutId);
+//                 // Handle completion
+//                 emitter.on('end', async (finalText: string) => {
+//                   clearTimeout(timeoutId);
                   
-                  // Save AI response to database after stream is complete
-                  const aiMessage = new Message();
-                  aiMessage.thread_id = threadId;
-                  aiMessage.user_id = userId; // Keep the user ID for attribution
-                  aiMessage.content = finalText; // Use finalText from end event
-                  aiMessage.is_ai = true; // Mark as AI message
-                  aiMessage.parent_id = userMessage?.id || null; // Link to the user's message
+//                   // Save AI response to database after stream is complete
+//                   const aiMessage = new Message();
+//                   aiMessage.thread_id = threadId;
+//                   aiMessage.user_id = userId; // Keep the user ID for attribution
+//                   aiMessage.content = finalText; // Use finalText from end event
+//                   aiMessage.is_ai = true; // Mark as AI message
+//                   aiMessage.parent_id = userMessage?.id || null; // Link to the user's message
                   
-                  console.log(`📝 [ThreadService] [streamMessage] Full AI response: 
------ AI RESPONSE START -----
-${finalText}
------ AI RESPONSE END -----`);
+//                   console.log(`📝 [ThreadService] [streamMessage] Full AI response: 
+// ----- AI RESPONSE START -----
+// ${finalText}
+// ----- AI RESPONSE END -----`);
                   
-                  try {
-                    await this.messageRepository.save(aiMessage);
-                    console.log(`✅ [ThreadService] [streamMessage] AI message saved:`, aiMessage.id);
-                  } catch (error) {
-                    console.log(`🔴 [ThreadService] [streamMessage] Error saving AI message:`, error);
-                  } finally {
-                    observer.complete();
-                  }
-                });
-              })
-              .catch(error => {
-                console.log(`🔴 [ThreadService] [streamMessage] Error initializing AI stream:`, error);
-                clearTimeout(timeoutId);
-                observer.error(error);
-              });
+//                   try {
+//                     await this.messageRepository.save(aiMessage);
+//                     console.log(`✅ [ThreadService] [streamMessage] AI message saved:`, aiMessage.id);
+//                   } catch (error) {
+//                     console.log(`🔴 [ThreadService] [streamMessage] Error saving AI message:`, error);
+//                   } finally {
+//                     observer.complete();
+//                   }
+//                 });
+//               })
+//               .catch(error => {
+//                 console.log(`🔴 [ThreadService] [streamMessage] Error initializing AI stream:`, error);
+//                 clearTimeout(timeoutId);
+//                 observer.error(error);
+//               });
           })
           .catch(error => {
             console.log(`🔴 [ThreadService] [streamMessage] error:`, error);
@@ -304,5 +304,107 @@ ${finalText}
       console.log(`🔴 [ThreadService] [getMessagesByThreadId] error:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Delete a thread and all its messages
+   * @param userId - ID of the user requesting deletion
+   * @param threadId - ID of the thread to delete
+   * @returns Object indicating success
+   */
+  async deleteThread(userId: string, threadId: string): Promise<{ success: boolean }> {
+    try {
+      console.log(`✅ [ThreadService] [deleteThread] userId:`, userId);
+      console.log(`✅ [ThreadService] [deleteThread] threadId:`, threadId);
+      
+      if (!userId) {
+        console.log(`🔴 [ThreadService] [deleteThread] userId is null or undefined`);
+        throw new UnauthorizedException('User not authenticated properly');
+      }
+      
+      // Verify thread exists and belongs to user
+      const thread = await this.threadRepository.findOne({ 
+        where: { id: threadId, user_id: userId } 
+      });
+      
+      if (!thread) {
+        console.log(`🔴 [ThreadService] [deleteThread] Thread not found or not owned by user`);
+        throw new NotFoundException('Thread not found or not owned by user');
+      }
+      
+      // Delete all messages first
+      await this.messageRepository.delete({ thread_id: threadId });
+      console.log(`✅ [ThreadService] [deleteThread] Messages deleted for thread:`, threadId);
+      
+      // Then delete the thread
+      await this.threadRepository.delete({ id: threadId });
+      console.log(`✅ [ThreadService] [deleteThread] Thread deleted:`, threadId);
+      
+      return { success: true };
+    } catch (error) {
+      console.log(`🔴 [ThreadService] [deleteThread] error:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get existing thread or create a new one if needed
+   * @param userId - ID of the user
+   * @param threadId - Optional thread ID to find
+   * @returns ID of the thread (existing or newly created)
+   */
+  async getOrCreateThread(userId: string, threadId?: string): Promise<string> {
+    // If threadId exists, check and validate
+    if (threadId) {
+      const thread = await this.threadRepository.findOne({ 
+        where: { id: threadId, user_id: userId } 
+      });
+      
+      if (!thread) {
+        console.log(`🔴 [ThreadService] [getOrCreateThread] Thread not found or not owned by user`);
+        throw new BadRequestException('Thread not found or not owned by user');
+      }
+      
+      return threadId;
+    }
+    
+    // If no threadId, create a new thread
+    const newThreadId = crypto.randomUUID();
+    const thread = new Thread();
+    thread.id = newThreadId;
+    thread.title = 'New Thread';
+    thread.user_id = userId;
+    
+    await this.threadRepository.save(thread);
+    console.log(`✅ [ThreadService] [getOrCreateThread] New thread created:`, newThreadId);
+    
+    return newThreadId;
+  }
+
+  /**
+   * Save message to database
+   * @param params - Object containing message data
+   * @returns The saved message entity
+   */
+  async saveMessage(params: {
+    threadId: string;
+    userId: string;
+    content: string;
+    isAi: boolean;
+    parentId: string | null;
+  }): Promise<Message> {
+    const { threadId, userId, content, isAi, parentId } = params;
+    
+    const message = new Message();
+    message.thread_id = threadId;
+    message.user_id = userId;
+    message.content = content;
+    message.is_ai = isAi;
+    message.parent_id = parentId;
+    
+    const savedMessage = await this.messageRepository.save(message);
+    console.log(`✅ [ThreadService] [saveMessage] ${isAi ? 'AI' : 'User'} message saved:`, savedMessage.id);
+    
+    return savedMessage;
   }
 } 
