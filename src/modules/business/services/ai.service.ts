@@ -443,8 +443,9 @@ export class AiService implements OnApplicationBootstrap {
 
       // Simulate streaming by breaking response into smaller chunks
       const chunks = this.simulateChunkedResponse(result);
+      console.log('🔍 [AiService] [executeAgentWithStreaming] Chunks:', chunks);
       for (const chunk of chunks) {
-        observer.next(chunk);
+        observer.next(` ${chunk}`);
         // Add small delay between chunks to simulate typing
         await new Promise((resolve) => setTimeout(resolve, 50));
       }

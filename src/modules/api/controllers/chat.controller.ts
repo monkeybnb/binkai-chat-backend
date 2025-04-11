@@ -144,13 +144,13 @@ export class ChatController {
           console.log(`✅ [ChatController] [streamChat] Stream completed`);
           
           // Save the complete AI response
-          await this.threadService.saveMessage({
-            threadId,
-            userId,
-            content: fullAiResponse,
-            isAi: true,
-            parentId: userMessage.id
-          });
+          // await this.threadService.saveMessage({
+          //   threadId,
+          //   userId,
+          //   content: fullAiResponse,
+          //   isAi: true,
+          //   parentId: userMessage.id
+          // });
           
           // Send completion event
           response.write(`data: ${JSON.stringify({ done: true })}\n\n`);
@@ -165,6 +165,7 @@ export class ChatController {
         
         // Still save the partial response if it exists
         if (fullAiResponse) {
+          console.log(`✅ [ChatController] [streamChat] Saving partial response:`, fullAiResponse);
           this.threadService.saveMessage({
             threadId,
             userId,
