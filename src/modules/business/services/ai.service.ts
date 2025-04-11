@@ -14,13 +14,12 @@ import { EventEmitter } from 'events';
 import { BinkProvider } from '@binkai/bink-provider';
 import { BnbProvider } from '@binkai/rpc-provider';
 import { ExampleToolExecutionCallback } from '@/shared/tools/tool-execution';
-import { ethers } from 'ethers';
 import { WalletPlugin } from '@binkai/wallet-plugin';
 import { BirdeyeProvider } from '@binkai/birdeye-provider';
 import { Server, Socket } from 'socket.io';
 import { Observable } from 'rxjs';
 import { PancakeSwapProvider } from '@binkai/pancakeswap-provider';
-import { JsonRpcProvider } from "ethers";
+import { JsonRpcProvider } from 'ethers';
 import { Connection } from '@solana/web3.js';
 import { KnowledgePlugin } from '@binkai/knowledge-plugin';
 import { FourMemeProvider } from '@binkai/four-meme-provider';
@@ -30,7 +29,6 @@ import { BridgePlugin } from '@binkai/bridge-plugin';
 import { StakingPlugin } from '@binkai/staking-plugin';
 import { VenusProvider } from '@binkai/venus-provider';
 import { ThenaProvider } from '@binkai/thena-provider';
-// @ts-ignore
 import { JupiterProvider } from '@binkai/jupiter-provider';
 import { SwapPlugin } from '@binkai/swap-plugin';
 import { AlchemyProvider } from '@binkai/alchemy-provider';
@@ -80,11 +78,11 @@ export class AiService implements OnApplicationBootstrap {
   private evmProvider: any;
   private eventEmitter: EventEmitter;
   private alchemyApi: AlchemyProvider;
-  @Inject('BSC_CONNECTION') 
+  @Inject('BSC_CONNECTION')
   private bscProvider: JsonRpcProvider;
-  @Inject('ETHEREUM_CONNECTION') 
+  @Inject('ETHEREUM_CONNECTION')
   private ethProvider: JsonRpcProvider;
-  @Inject('SOLANA_CONNECTION') 
+  @Inject('SOLANA_CONNECTION')
   private solProvider: Connection;
 
   constructor(@Inject('OPENAI') openai: OpenAI) {
@@ -128,7 +126,6 @@ export class AiService implements OnApplicationBootstrap {
           },
         },
       },
-      
     };
 
     this.postgresAdapter = new PostgresDatabaseAdapter({
@@ -159,13 +156,30 @@ export class AiService implements OnApplicationBootstrap {
     });
 
     this.eventEmitter = new EventEmitter();
-    
   }
 
   async subscribeWallet(threadId: string, socket: Socket) {
-    const wallet = new ExtensionWallet(this.network);
-    wallet.connect(socket);
-    this.mapWallet[threadId] = wallet;
+    try {
+      const wallet = new ExtensionWallet(this.network);
+      wallet.connect(socket);
+      this.mapWallet[threadId] = wallet;
+    } catch (error) {
+      console.error('🚨 [AiService] [subscribeWallet] Error:', error);
+      throw new Error(error.message);
+    }
+  }
+  async unsubscribeWallet(threadId: string) {
+    try {
+      const wallet = this.mapWallet[threadId];
+      if (wallet) {
+        wallet.disconnect();
+        delete this.mapWallet[threadId];
+        delete this.mapAgent[threadId];
+      }
+    } catch (error) {
+      console.error('🚨 [AiService] [unsubscribeWallet] Error:', error);
+      throw new Error(error.message);
+    }
   }
 
   /**
@@ -178,7 +192,7 @@ export class AiService implements OnApplicationBootstrap {
     threadId: string,
   ): Promise<{ agent: Agent; wallet: ExtensionWallet }> {
     // Get the wallet from the map
-    console.log('this.mapWallet', this.mapWallet);
+    console.log('🔍 [AiService] [getOrCreateAgent] Number of active wallets:', Object.keys(this.mapWallet).length);
     const wallet = this.mapWallet[threadId];
     if (!wallet) {
       console.log(
@@ -443,8 +457,9 @@ export class AiService implements OnApplicationBootstrap {
 
       // Simulate streaming by breaking response into smaller chunks
       const chunks = this.simulateChunkedResponse(result);
+      console.log('🔍 [AiService] [executeAgentWithStreaming] Chunks:', chunks);
       for (const chunk of chunks) {
-        observer.next(chunk);
+        observer.next(` ${chunk}`);
         // Add small delay between chunks to simulate typing
         await new Promise((resolve) => setTimeout(resolve, 50));
       }

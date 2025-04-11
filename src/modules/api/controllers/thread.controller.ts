@@ -169,9 +169,9 @@ export class ThreadController {
     @Query() paginateDto: PaginateDto
   ) {
     try {
-      console.log(`✅ [ThreadController] [getThreadMessages] threadId:`, threadId);
-      console.log(`✅ [ThreadController] [getThreadMessages] userId:`, userId);
-      console.log(`✅ [ThreadController] [getThreadMessages] paginateDto:`, paginateDto);
+      // console.log(`✅ [ThreadController] [getThreadMessages] threadId:`, threadId);
+      // console.log(`✅ [ThreadController] [getThreadMessages] userId:`, userId);
+      // console.log(`✅ [ThreadController] [getThreadMessages] paginateDto:`, paginateDto);
       
       if (!userId) {
         console.log(`🔴 [ThreadController] [getThreadMessages] userId is null or undefined`);
@@ -180,7 +180,7 @@ export class ThreadController {
       
       const messages = await this.threadService.getMessagesByThreadId(userId, threadId, paginateDto);
       
-      console.log(`✅ [ThreadController] [getThreadMessages] messages found:`, messages.pagination.total);
+      // console.log(`✅ [ThreadController] [getThreadMessages] messages found:`, messages.pagination.total);
       
       return messages;
     } catch (error) {

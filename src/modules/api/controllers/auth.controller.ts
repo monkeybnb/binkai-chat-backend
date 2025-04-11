@@ -21,7 +21,7 @@ export class AuthController {
     description: 'Return nonce',
   })
   async getNonce(@Query('address', new ValidationPipe({ transform: true })) address: string) {
-    return this.authService.getNonce(address?.toLowerCase());
+    return this.authService.getNonce(address);
   }
 
   @Post('login')
@@ -32,7 +32,7 @@ export class AuthController {
   })
   async verifySignature(@Body() verifySignatureDto: VerifySignatureDto) {
     return this.authService.verifySignature(
-      verifySignatureDto.address?.toLowerCase(),
+      verifySignatureDto.address,
       verifySignatureDto.signature,
     );
   }

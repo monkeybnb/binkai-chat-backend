@@ -269,9 +269,9 @@ export class ThreadService {
     paginateDto: PaginateDto,
   ): Promise<IGetPaginationResponse<Message[]>> {
     try {
-      console.log(`✅ [ThreadService] [getMessagesByThreadId] userId:`, userId);
-      console.log(`✅ [ThreadService] [getMessagesByThreadId] threadId:`, threadId);
-      console.log(`✅ [ThreadService] [getMessagesByThreadId] paginateDto:`, paginateDto);
+      // console.log(`✅ [ThreadService] [getMessagesByThreadId] userId:`, userId);
+      // console.log(`✅ [ThreadService] [getMessagesByThreadId] threadId:`, threadId);
+      // console.log(`✅ [ThreadService] [getMessagesByThreadId] paginateDto:`, paginateDto);
       
       if (!userId) {
         console.log(`🔴 [ThreadService] [getMessagesByThreadId] userId is null or undefined`);
@@ -297,7 +297,7 @@ export class ThreadService {
         );
       
       const result = await paginate(queryBuilder, paginateDto.page, paginateDto.take);
-      console.log(`✅ [ThreadService] [getMessagesByThreadId] total messages:`, result.pagination.total);
+      // console.log(`✅ [ThreadService] [getMessagesByThreadId] total messages:`, result.pagination.total);
       
       return result;
     } catch (error) {
