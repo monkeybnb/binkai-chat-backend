@@ -241,7 +241,7 @@ export class WalletGateway
     }
   }
 
-  async testSignMessage(threadId: string, message: string): Promise<string> {
+  async testSignMessage(threadId: string): Promise<string> {
     try {
       console.log('🔍 Signing message for threadId:', {
         x: this.uuidToClientId,
@@ -273,7 +273,7 @@ export class WalletGateway
             return;
           }
 
-          socket.emit('sign_message', { message }, (response) => {
+          socket.emit('sign_message', { }, (response) => {
             console.log('🔍 Sign message response:', response);
             if (response && response.signature) {
               resolve(response.signature);

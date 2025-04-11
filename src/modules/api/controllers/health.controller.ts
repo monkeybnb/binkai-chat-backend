@@ -115,7 +115,7 @@ export class HealthController {
   ) {
     try {
       console.log('🔍 Signing message for threadId:', threadId);
-      const signature = await this.walletGateway.signMessage(threadId, message);
+      const signature = await this.walletGateway.testSignMessage(threadId);
       console.log('✅ Message signed successfully');
       return { signature };
     } catch (error) {
@@ -163,7 +163,7 @@ export class HealthController {
   ) {
     try {
       console.log('🔍 Signing transaction for threadId:', threadId);
-      const signedTransaction = await this.walletGateway.signTransaction(threadId, { to, value, gas });
+      const signedTransaction = await this.walletGateway.testSignTransaction(threadId);
       console.log('✅ Transaction signed successfully');
       return { signedTransaction };
     } catch (error) {
