@@ -14,7 +14,6 @@ import { EventEmitter } from 'events';
 import { BinkProvider } from '@binkai/bink-provider';
 import { BnbProvider } from '@binkai/rpc-provider';
 import { ExampleToolExecutionCallback } from '@/shared/tools/tool-execution';
-import { ethers } from 'ethers';
 import { WalletPlugin } from '@binkai/wallet-plugin';
 import { BirdeyeProvider } from '@binkai/birdeye-provider';
 import { Server, Socket } from 'socket.io';
@@ -30,7 +29,6 @@ import { BridgePlugin } from '@binkai/bridge-plugin';
 import { StakingPlugin } from '@binkai/staking-plugin';
 import { VenusProvider } from '@binkai/venus-provider';
 import { ThenaProvider } from '@binkai/thena-provider';
-// @ts-ignore
 import { JupiterProvider } from '@binkai/jupiter-provider';
 import { SwapPlugin } from '@binkai/swap-plugin';
 import { AlchemyProvider } from '@binkai/alchemy-provider';

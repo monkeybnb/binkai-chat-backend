@@ -12,20 +12,20 @@ export class AuthService {
   ) {}
 
   async getNonce(address: string): Promise<{ nonce: number }> {
-    const lowerCaseAddress = address?.toLowerCase();
+    const normalizedAddress = address.startsWith('0x') ? address : address?.toLowerCase();
     // Check if wallet address already exists in the system
-    let user = await this.userRepository.findByAddress(lowerCaseAddress);
+    let user = await this.userRepository.findByAddress(normalizedAddress);
 
     console.log('user', {
       user,
-      lowerCaseAddress,
+      normalizedAddress,
     });
 
     // If not exists, create new user
     if (!user) {
       user = new User();
-      user.address = lowerCaseAddress;
-      user.username = lowerCaseAddress;
+      user.address = normalizedAddress;
+      user.username = normalizedAddress;
       user.nonce = Math.floor(Math.random() * 1000000);
       await this.userRepository.save(user);
     } else {
@@ -38,10 +38,9 @@ export class AuthService {
   }
 
   async verifySignature(address: string, signature: string) {
-
-    const lowerCaseAddress = address?.toLowerCase();
+    const normalizedAddress = address.startsWith('0x') ? address : address?.toLowerCase();
     // Find user by wallet address
-    const user = await this.userRepository.findByAddress(lowerCaseAddress);
+    const user = await this.userRepository.findByAddress(normalizedAddress);
     if (!user) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
@@ -54,7 +53,7 @@ export class AuthService {
       const recoveredAddress = ethers.verifyMessage(message, signature);
 
       // Check if recovered address matches the user's address
-      if (recoveredAddress.toLowerCase() !== lowerCaseAddress) {
+      if (recoveredAddress !== normalizedAddress && recoveredAddress.toLowerCase() !== normalizedAddress.toLowerCase()) {
         throw new HttpException('Invalid signature', HttpStatus.UNAUTHORIZED);
       }
 
@@ -71,7 +70,7 @@ export class AuthService {
         user: {
           id: user.id,
           username: user.username,
-          address: lowerCaseAddress,
+          address: normalizedAddress,
         },
       };
     } catch (error) {

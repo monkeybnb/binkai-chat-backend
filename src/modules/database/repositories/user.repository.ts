@@ -12,6 +12,7 @@ export class UserRepository extends Repository<User> {
   }
 
   async findByAddress(address: string): Promise<User | null> {
-    return this.findOne({ where: { address: address.toLowerCase() } });
+    const normalizedAddress = address.startsWith('0x') ? address : address.toLowerCase();
+    return this.findOne({ where: { address: normalizedAddress } });
   }
 }
