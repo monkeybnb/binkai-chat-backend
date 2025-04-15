@@ -16,7 +16,6 @@ export class VerifySignatureDto {
     description: 'Ethereum address of wallet (used for Binance Wallet)',
     example: '0x1234567890123456789012345678901234567890',
   })
-  @IsEthereumAddress()
   @IsNotEmpty()
   address: string;
 
