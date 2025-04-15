@@ -3,6 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { UserRepository } from '../../database/repositories/user.repository';
 import { ethers } from 'ethers';
 import { User } from '../../database/entities/user.entity';
+import * as nacl from 'tweetnacl';
+import bs58 from 'bs58';
 
 @Injectable()
 export class AuthService {
@@ -16,7 +18,7 @@ export class AuthService {
     // Check if wallet address already exists in the system
     let user = await this.userRepository.findByAddress(normalizedAddress);
 
-    console.log('user', {
+    console.log('🔍 [AuthService] [getNonce] user:', {
       user,
       normalizedAddress,
     });
@@ -49,11 +51,33 @@ export class AuthService {
     const message = `Sign this message to login with nonce: ${user.nonce}`;
 
     try {
-      // Recover address from signature
-      const recoveredAddress = ethers.verifyMessage(message, signature);
+      let isValid = false;
+      
+      // Check if Ethereum address (starts with 0x)
+      if (address.startsWith('0x')) {
+        // Verify using ethers.js for Ethereum addresses
+        const recoveredAddress = ethers.verifyMessage(message, signature);
+        isValid = recoveredAddress.toLowerCase() === normalizedAddress.toLowerCase();
+      } else {
+        // Assume Solana address or other non-Ethereum blockchain
+        try {
+          // For Solana verification
+          const messageBytes = new TextEncoder().encode(message);
+          const signatureBytes = Buffer.from(signature, 'base64');
+          const publicKeyBytes = bs58.decode(address);
+          
+          isValid = nacl.sign.detached.verify(
+            messageBytes,
+            signatureBytes,
+            publicKeyBytes
+          );
+        } catch (verificationError) {
+          console.log('🔴 [AuthService] [verifySignature] Verification error:', verificationError);
+          isValid = false;
+        }
+      }
 
-      // Check if recovered address matches the user's address
-      if (recoveredAddress !== normalizedAddress && recoveredAddress.toLowerCase() !== normalizedAddress.toLowerCase()) {
+      if (!isValid) {
         throw new HttpException('Invalid signature', HttpStatus.UNAUTHORIZED);
       }
 
@@ -74,6 +98,7 @@ export class AuthService {
         },
       };
     } catch (error) {
+      console.log('🔴 [AuthService] [verifySignature] error:', error);
       // Handle signature verification error
       throw new HttpException(
         'Signature verification failed',
