@@ -188,18 +188,18 @@ export class ChatController {
         clearInterval(keepAliveInterval);
         
         // Still save the partial response if it exists
-        if (fullAiResponse) {
-          console.log(`✅ [ChatController] [streamChat] Saving partial response:`, fullAiResponse);
-          this.threadService.saveMessage({
-            threadId,
-            userId,
-            content: fullAiResponse,
-            isAi: true,
-            parentId: userMessage.id
-          }).catch(err => {
-            console.log(`🔴 [ChatController] [streamChat] Error saving partial response:`, err);
-          });
-        }
+        // if (fullAiResponse) {
+        //   console.log(`✅ [ChatController] [streamChat] Saving partial response:`, fullAiResponse);
+        //   this.threadService.saveMessage({
+        //     threadId,
+        //     userId,
+        //     content: fullAiResponse,
+        //     isAi: true,
+        //     parentId: userMessage.id
+        //   }).catch(err => {
+        //     console.log(`🔴 [ChatController] [streamChat] Error saving partial response:`, err);
+        //   });
+        // }
       });
     } catch (error) {
       console.log(`🔴 [ChatController] [streamChat] error:`, error);
