@@ -59,6 +59,7 @@
     "@nestjs/websockets": "^11.0.13",
     "@solana/web3.js": "^1.98.0",
     "axios": "1.4.0",
+    "bs58": "^6.0.0",
     "bull": "^4.11.3",
     "cache-manager": "^5.5.2",
     "cache-manager-redis-store": "^3.0.1",
@@ -78,6 +79,7 @@
     "rxjs": "^7.8.2",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "tweetnacl": "^1.0.3",
     "typeorm": "^0.3.17",
     "uuid": "^11.0.3"
   },
