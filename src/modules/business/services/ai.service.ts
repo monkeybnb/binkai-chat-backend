@@ -60,6 +60,8 @@ CRITICAL:
 const BNB_RPC = 'https://bsc-dataseed1.binance.org';
 const ETH_RPC = 'https://eth.llamarpc.com';
 const SOL_RPC = 'https://api.mainnet-beta.solana.com';
+const chains =  ['bnb', 'ethereum', 'solana'];
+
 
 @Injectable()
 export class AiService implements OnApplicationBootstrap {
@@ -215,7 +217,7 @@ export class AiService implements OnApplicationBootstrap {
       await walletPlugin.initialize({
         defaultChain: 'bnb',
         providers: [this.bnbProvider, this.birdeyeApi],
-        supportedChains: ['bnb'],
+        supportedChains: chains,
       });
 
       const bscChainId = 56;
@@ -279,12 +281,12 @@ export class AiService implements OnApplicationBootstrap {
           defaultSlippage: 0.5,
           defaultChain: 'bnb',
           providers: [pancakeswap, fourMeme, okx, thena, jupiter],
-          supportedChains: ['bnb', 'ethereum', 'solana'], // These will be intersected with agent's networks
+          supportedChains: chains, // These will be intersected with agent's networks
         }),
         tokenPlugin.initialize({
           defaultChain: 'bnb',
           providers: [this.birdeyeApi, fourMeme as any],
-          supportedChains: ['solana', 'bnb'],
+          supportedChains: chains,
         }),
         await knowledgePlugin.initialize({
           providers: [this.binkProvider],
@@ -296,18 +298,18 @@ export class AiService implements OnApplicationBootstrap {
         await bridgePlugin.initialize({
           defaultChain: 'bnb',
           providers: [debridge],
-          supportedChains: ['bnb', 'solana'],
+          supportedChains: chains,
         }),
         await walletPlugin.initialize({
           defaultChain: 'bnb',
           providers: [this.bnbProvider, this.birdeyeApi, this.alchemyApi],
-          supportedChains: ['bnb'],
+          supportedChains: chains,
         }),
         await stakingPlugin.initialize({
           defaultSlippage: 0.5,
           defaultChain: 'bnb',
           providers: [venus],
-          supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
+          supportedChains: chains, // These will be intersected with agent's networks
         }),
       ]);
 
@@ -454,6 +456,8 @@ export class AiService implements OnApplicationBootstrap {
         input: input.trim(),
         threadId: threadId as UUID,
       });
+
+      
 
       // Simulate streaming by breaking response into smaller chunks
       const chunks = this.simulateChunkedResponse(result);
