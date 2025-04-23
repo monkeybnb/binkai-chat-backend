@@ -158,6 +158,7 @@ export class AiService implements OnApplicationBootstrap {
     });
 
     this.eventEmitter = new EventEmitter();
+    console.log('🔍 [AiService] [constructor] Initializing AiService...');
   }
 
   async subscribeWallet(threadId: string, socket: Socket) {
