@@ -215,11 +215,11 @@ export class AiService implements OnApplicationBootstrap {
 
       // Create and initialize wallet plugin
       const walletPlugin = new WalletPlugin();
-      await walletPlugin.initialize({
-        defaultChain: 'bnb',
-        providers: [this.bnbProvider, this.birdeyeApi],
-        supportedChains: chains,
-      });
+      // await walletPlugin.initialize({
+      //   defaultChain: 'bnb',
+      //   providers: [this.bnbProvider, this.birdeyeApi],
+      //   supportedChains: chains,
+      // });
 
       const bscChainId = 56;
       const pancakeswap = new PancakeSwapProvider(this.bscProvider, bscChainId);
@@ -240,42 +240,42 @@ export class AiService implements OnApplicationBootstrap {
       const thena = new ThenaProvider(this.bscProvider, bscChainId);
 
       // Initialize the swap plugin with supported chains and providers
-      await Promise.all([
-        swapPlugin.initialize({
-          defaultSlippage: 0.5,
-          defaultChain: 'bnb',
-          providers: [pancakeswap, fourMeme, okx, thena, jupiter],
-          supportedChains: ['bnb', 'ethereum', 'solana'], // These will be intersected with agent's networks
-        }),
-        tokenPlugin.initialize({
-          defaultChain: 'bnb',
-          providers: [this.birdeyeApi, fourMeme as any],
-          supportedChains: ['solana', 'bnb'],
-        }),
-        await knowledgePlugin.initialize({
-          providers: [this.binkProvider],
-        }),
-        await imagePlugin.initialize({
-          defaultChain: 'bnb',
-          providers: [this.binkProvider],
-        }),
-        await bridgePlugin.initialize({
-          defaultChain: 'bnb',
-          providers: [debridge],
-          supportedChains: ['bnb', 'solana'],
-        }),
-        await walletPlugin.initialize({
-          defaultChain: 'bnb',
-          providers: [this.bnbProvider, this.birdeyeApi, this.alchemyApi],
-          supportedChains: ['bnb'],
-        }),
-        await stakingPlugin.initialize({
-          defaultSlippage: 0.5,
-          defaultChain: 'bnb',
-          providers: [venus],
-          supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
-        }),
-      ]);
+      // await Promise.all([
+      //   swapPlugin.initialize({
+      //     defaultSlippage: 0.5,
+      //     defaultChain: 'bnb',
+      //     providers: [pancakeswap, fourMeme, okx, thena, jupiter],
+      //     supportedChains: ['bnb', 'ethereum', 'solana'], // These will be intersected with agent's networks
+      //   }),
+      //   tokenPlugin.initialize({
+      //     defaultChain: 'bnb',
+      //     providers: [this.birdeyeApi, fourMeme as any],
+      //     supportedChains: ['solana', 'bnb'],
+      //   }),
+      //    knowledgePlugin.initialize({
+      //     providers: [this.binkProvider],
+      //   }),
+      //    imagePlugin.initialize({
+      //     defaultChain: 'bnb',
+      //     providers: [this.binkProvider],
+      //   }),
+      //    bridgePlugin.initialize({
+      //     defaultChain: 'bnb',
+      //     providers: [debridge],
+      //     supportedChains: ['bnb', 'solana'],
+      //   }),
+      //    walletPlugin.initialize({
+      //     defaultChain: 'bnb',
+      //     providers: [this.bnbProvider, this.birdeyeApi, this.alchemyApi],
+      //     supportedChains: ['bnb'],
+      //   }),
+      //    stakingPlugin.initialize({
+      //     defaultSlippage: 0.5,
+      //     defaultChain: 'bnb',
+      //     providers: [venus],
+      //     supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
+      //   }),
+      // ]);
 
       await Promise.all([
         swapPlugin.initialize({
