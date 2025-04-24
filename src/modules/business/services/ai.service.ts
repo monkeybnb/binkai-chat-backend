@@ -79,7 +79,6 @@ export class AiService implements OnApplicationBootstrap {
   private mapAgent: Record<string, Agent> = {};
   private mapWallet: Record<string, ExtensionWallet> = {};
   private io: Server;
-  private isInitialized = false;
   private evmProvider: any;
   private eventEmitter: EventEmitter;
   private alchemyApi: AlchemyProvider;
@@ -305,8 +304,8 @@ export class AiService implements OnApplicationBootstrap {
       await agent.registerPlugin(tokenPlugin as any);
       await agent.registerDatabase(this.postgresAdapter);
       await agent.registerPlugin(knowledgePlugin as any);
-      await agent.registerPlugin(bridgePlugin as any);
-      await agent.registerPlugin(walletPlugin as any);
+      await agent.registerPlugin(bridgePlugin);
+      await agent.registerPlugin(walletPlugin);
       await agent.registerPlugin(stakingPlugin as any);
       await agent.registerPlugin(imagePlugin as any);
 
@@ -478,7 +477,6 @@ export class AiService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap() {
     console.log('🚀 [AiService] Application bootstrapped');
-    // Không cần thêm các khởi tạo phức tạp ở đây
   }
 }
 
