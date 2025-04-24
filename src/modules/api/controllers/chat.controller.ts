@@ -84,6 +84,10 @@ export class ChatController {
     status: 401,
     description: 'Unauthorized',
   })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request',
+  })
   async streamChat(
     @Body() chatRequestDto: ChatRequestDto,
     @CurrentUserId() userId: string,
@@ -122,6 +126,17 @@ export class ChatController {
 
       // Create variables to store the complete AI response
       let fullAiResponse = '';
+      
+      // Setup keep-alive timer to prevent Cloudflare from closing the connection
+      // Send a ping comment every 30 seconds
+      const keepAliveInterval = setInterval(() => {
+        if (!response.closed) {
+          console.log(`✅ [ChatController] [streamChat] Sending keep-alive ping`);
+          response.write(`:ping\n\n`); // SSE comment for keep-alive
+        } else {
+          clearInterval(keepAliveInterval);
+        }
+      }, 30000); // 30 seconds
 
       // Subscribe to the stream from AiService instead of ThreadService
       const agentStream = this.aiService.handleAgentStream(threadId, chatRequestDto.message);
@@ -133,28 +148,36 @@ export class ChatController {
           fullAiResponse += chunk;
           
           // Send each chunk as an SSE event
-          response.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+          if (!response.closed) {
+            response.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+          }
         },
         error: (error) => {
           console.log(`🔴 [ChatController] [streamChat] Stream error:`, error);
-          response.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
-          response.end();
+          if (!response.closed) {
+            response.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+            response.end();
+          }
+          clearInterval(keepAliveInterval);
         },
         complete: async () => {
           console.log(`✅ [ChatController] [streamChat] Stream completed`);
           
           // Save the complete AI response
-          // await this.threadService.saveMessage({
-          //   threadId,
-          //   userId,
-          //   content: fullAiResponse,
-          //   isAi: true,
-          //   parentId: userMessage.id
-          // });
+          await this.threadService.saveMessage({
+            threadId,
+            userId,
+            content: fullAiResponse,
+            isAi: true,
+            parentId: userMessage.id
+          });
           
           // Send completion event
-          response.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-          response.end();
+          if (!response.closed) {
+            response.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+            response.end();
+          }
+          clearInterval(keepAliveInterval);
         }
       });
 
@@ -162,26 +185,27 @@ export class ChatController {
       response.on('close', () => {
         console.log(`✅ [ChatController] [streamChat] Client disconnected, cleaning up`);
         subscription.unsubscribe();
+        clearInterval(keepAliveInterval);
         
         // Still save the partial response if it exists
-        if (fullAiResponse) {
-          console.log(`✅ [ChatController] [streamChat] Saving partial response:`, fullAiResponse);
-          this.threadService.saveMessage({
-            threadId,
-            userId,
-            content: fullAiResponse,
-            isAi: true,
-            parentId: userMessage.id
-          }).catch(err => {
-            console.log(`🔴 [ChatController] [streamChat] Error saving partial response:`, err);
-          });
-        }
+        // if (fullAiResponse) {
+        //   console.log(`✅ [ChatController] [streamChat] Saving partial response:`, fullAiResponse);
+        //   this.threadService.saveMessage({
+        //     threadId,
+        //     userId,
+        //     content: fullAiResponse,
+        //     isAi: true,
+        //     parentId: userMessage.id
+        //   }).catch(err => {
+        //     console.log(`🔴 [ChatController] [streamChat] Error saving partial response:`, err);
+        //   });
+        // }
       });
     } catch (error) {
       console.log(`🔴 [ChatController] [streamChat] error:`, error);
       if (!response.headersSent) {
         response.status(HttpStatus.BAD_REQUEST).send({ message: error.message });
-      } else {
+      } else if (!response.closed) {
         response.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
         response.end();
       }

@@ -12,7 +12,7 @@ import {
 import { PostgresDatabaseAdapter } from '@binkai/postgres-adapter';
 import { EventEmitter } from 'events';
 import { BinkProvider } from '@binkai/bink-provider';
-import { BnbProvider } from '@binkai/rpc-provider';
+import { BnbProvider, SolanaProvider } from '@binkai/rpc-provider';
 import { ExampleToolExecutionCallback } from '@/shared/tools/tool-execution';
 import { WalletPlugin } from '@binkai/wallet-plugin';
 import { BirdeyeProvider } from '@binkai/birdeye-provider';
@@ -34,6 +34,10 @@ import { SwapPlugin } from '@binkai/swap-plugin';
 import { AlchemyProvider } from '@binkai/alchemy-provider';
 import { TokenPlugin } from '@binkai/token-plugin';
 import { ImagePlugin } from '@binkai/image-plugin';
+import { KyberProvider } from '@binkai/kyber-provider';
+import { ListaProvider } from '@binkai/lista-provider';
+import { KernelDaoProvider } from '@binkai/kernel-dao-provider';
+import { OkuProvider } from '@binkai/oku-provider';
 
 // Constants for system prompt - to avoid duplication
 const SYSTEM_PROMPT = `You are a BINK AI assistant. You can help user to query blockchain data. You are able to perform swaps and get token information on multiple chains. If you do not have the token address, you can use the symbol to get the token information before performing a swap.
@@ -60,6 +64,7 @@ CRITICAL:
 const BNB_RPC = 'https://bsc-dataseed1.binance.org';
 const ETH_RPC = 'https://eth.llamarpc.com';
 const SOL_RPC = 'https://api.mainnet-beta.solana.com';
+const chains = ['bnb', 'ethereum', 'solana'];
 
 @Injectable()
 export class AiService implements OnApplicationBootstrap {
@@ -74,16 +79,12 @@ export class AiService implements OnApplicationBootstrap {
   private mapAgent: Record<string, Agent> = {};
   private mapWallet: Record<string, ExtensionWallet> = {};
   private io: Server;
-  private isInitialized = false;
   private evmProvider: any;
   private eventEmitter: EventEmitter;
   private alchemyApi: AlchemyProvider;
   @Inject('BSC_CONNECTION')
   private bscProvider: JsonRpcProvider;
-  @Inject('ETHEREUM_CONNECTION')
-  private ethProvider: JsonRpcProvider;
-  @Inject('SOLANA_CONNECTION')
-  private solProvider: Connection;
+  private solanaProvider: SolanaProvider;
 
   constructor(@Inject('OPENAI') openai: OpenAI) {
     this.openai = openai;
@@ -156,6 +157,12 @@ export class AiService implements OnApplicationBootstrap {
     });
 
     this.eventEmitter = new EventEmitter();
+
+    this.solanaProvider = new SolanaProvider({
+      rpcUrl: process.env.RPC_URL,
+    });
+
+    console.log('🔍 [AiService] [constructor] Initializing AiService...');
   }
 
   async subscribeWallet(threadId: string, socket: Socket) {
@@ -192,7 +199,10 @@ export class AiService implements OnApplicationBootstrap {
     threadId: string,
   ): Promise<{ agent: Agent; wallet: ExtensionWallet }> {
     // Get the wallet from the map
-    console.log('🔍 [AiService] [getOrCreateAgent] Number of active wallets:', Object.keys(this.mapWallet).length);
+    console.log(
+      '🔍 [AiService] [getOrCreateAgent] Number of active wallets:',
+      Object.keys(this.mapWallet).length,
+    );
     const wallet = this.mapWallet[threadId];
     if (!wallet) {
       console.log(
@@ -211,43 +221,41 @@ export class AiService implements OnApplicationBootstrap {
       );
 
       // Create and initialize wallet plugin
-      const walletPlugin = new WalletPlugin();
-      await walletPlugin.initialize({
-        defaultChain: 'bnb',
-        providers: [this.bnbProvider, this.birdeyeApi],
-        supportedChains: ['bnb'],
-      });
-
       const bscChainId = 56;
       const pancakeswap = new PancakeSwapProvider(this.bscProvider, bscChainId);
-
-      const okx = new OkxProvider(this.bscProvider, bscChainId);
-
+      // const okx = new OkxProvider(this.bscProvider, bscChainId);
       const fourMeme = new FourMemeProvider(this.bscProvider, bscChainId);
       const venus = new VenusProvider(this.bscProvider, bscChainId);
+      const kernelDao = new KernelDaoProvider(this.bscProvider, bscChainId);
+      const oku = new OkuProvider(this.bscProvider, bscChainId);
+      const kyber = new KyberProvider(this.bscProvider, bscChainId);
       const jupiter = new JupiterProvider(new Connection(process.env.RPC_URL));
       const imagePlugin = new ImagePlugin();
       const swapPlugin = new SwapPlugin();
       const tokenPlugin = new TokenPlugin();
       const knowledgePlugin = new KnowledgePlugin();
       const bridgePlugin = new BridgePlugin();
-      const debridge = new deBridgeProvider(this.bscProvider);
+      const debridge = new deBridgeProvider(
+        [this.bscProvider, new Connection(process.env.RPC_URL)],
+        56,
+        7565164,
+      );
+      const walletPlugin = new WalletPlugin();
       const stakingPlugin = new StakingPlugin();
-
       const thena = new ThenaProvider(this.bscProvider, bscChainId);
+      const lista = new ListaProvider(this.bscProvider, bscChainId);
 
-      // Initialize the swap plugin with supported chains and providers
       await Promise.all([
         swapPlugin.initialize({
           defaultSlippage: 0.5,
           defaultChain: 'bnb',
-          providers: [pancakeswap, fourMeme, okx, thena, jupiter],
+          providers: [pancakeswap, fourMeme, thena, jupiter, oku, kyber],
           supportedChains: ['bnb', 'ethereum', 'solana'], // These will be intersected with agent's networks
         }),
         tokenPlugin.initialize({
           defaultChain: 'bnb',
           providers: [this.birdeyeApi, fourMeme as any],
-          supportedChains: ['solana', 'bnb'],
+          supportedChains: ['solana', 'bnb', 'ethereum'],
         }),
         await knowledgePlugin.initialize({
           providers: [this.binkProvider],
@@ -263,50 +271,18 @@ export class AiService implements OnApplicationBootstrap {
         }),
         await walletPlugin.initialize({
           defaultChain: 'bnb',
-          providers: [this.bnbProvider, this.birdeyeApi, this.alchemyApi],
-          supportedChains: ['bnb'],
+          providers: [
+            this.bnbProvider,
+            this.birdeyeApi,
+            this.alchemyApi,
+            this.solanaProvider,
+          ],
+          supportedChains: ['bnb', 'solana', 'ethereum'],
         }),
         await stakingPlugin.initialize({
           defaultSlippage: 0.5,
           defaultChain: 'bnb',
-          providers: [venus],
-          supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
-        }),
-      ]);
-
-      await Promise.all([
-        swapPlugin.initialize({
-          defaultSlippage: 0.5,
-          defaultChain: 'bnb',
-          providers: [pancakeswap, fourMeme, okx, thena, jupiter],
-          supportedChains: ['bnb', 'ethereum', 'solana'], // These will be intersected with agent's networks
-        }),
-        tokenPlugin.initialize({
-          defaultChain: 'bnb',
-          providers: [this.birdeyeApi, fourMeme as any],
-          supportedChains: ['solana', 'bnb'],
-        }),
-        await knowledgePlugin.initialize({
-          providers: [this.binkProvider],
-        }),
-        await imagePlugin.initialize({
-          defaultChain: 'bnb',
-          providers: [this.binkProvider],
-        }),
-        await bridgePlugin.initialize({
-          defaultChain: 'bnb',
-          providers: [debridge],
-          supportedChains: ['bnb', 'solana'],
-        }),
-        await walletPlugin.initialize({
-          defaultChain: 'bnb',
-          providers: [this.bnbProvider, this.birdeyeApi, this.alchemyApi],
-          supportedChains: ['bnb'],
-        }),
-        await stakingPlugin.initialize({
-          defaultSlippage: 0.5,
-          defaultChain: 'bnb',
-          providers: [venus],
+          providers: [venus, kernelDao, lista],
           supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
         }),
       ]);
@@ -328,8 +304,8 @@ export class AiService implements OnApplicationBootstrap {
       await agent.registerPlugin(tokenPlugin as any);
       await agent.registerDatabase(this.postgresAdapter);
       await agent.registerPlugin(knowledgePlugin as any);
-      await agent.registerPlugin(bridgePlugin as any);
-      await agent.registerPlugin(walletPlugin as any);
+      await agent.registerPlugin(bridgePlugin);
+      await agent.registerPlugin(walletPlugin);
       await agent.registerPlugin(stakingPlugin as any);
       await agent.registerPlugin(imagePlugin as any);
 
@@ -501,7 +477,6 @@ export class AiService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap() {
     console.log('🚀 [AiService] Application bootstrapped');
-    // Không cần thêm các khởi tạo phức tạp ở đây
   }
 }
 
