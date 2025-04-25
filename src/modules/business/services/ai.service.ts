@@ -290,7 +290,7 @@ export class AiService implements OnApplicationBootstrap {
       // Create new agent
       agent = new Agent(
         {
-          model: 'gpt-4o',
+          model: 'gpt-4.1',
           temperature: 0,
           systemPrompt: SYSTEM_PROMPT,
         },
