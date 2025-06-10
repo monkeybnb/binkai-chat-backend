@@ -298,7 +298,7 @@ export class AiService implements OnApplicationBootstrap {
           defaultSlippage: 0.5,
           defaultChain: 'bnb',
           providers: [venus, kernelDao, lista],
-          supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
+          supportedChains: ['bnb', 'ethereum'],
         }),
       ]);
 
