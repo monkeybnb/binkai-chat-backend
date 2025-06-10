@@ -49,7 +49,6 @@
     "@binkai/wallet-plugin": "^0.3.4-alpha.3",
     "@binkai/hyperliquid-provider": "^0.3.4-alpha.3",
     "@msgpack/msgpack": "^3.1.2",
-
     "@nestjs/bull": "^10.0.1",
     "@nestjs/cache-manager": "^2.2.2",
     "@nestjs/common": "^10.0.0",
