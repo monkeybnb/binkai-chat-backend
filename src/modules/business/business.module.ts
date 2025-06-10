@@ -50,6 +50,13 @@ const services = [ThreadService, OpenAIService, UserService, AiService, WalletSe
         return new ethers.JsonRpcProvider(rpc);
       },
     },
+    {
+      provide: "HYPERLIQUID_CONNECTION",
+      useFactory: () => {
+        const rpc = process.env.HYPERLIQUID_RPC;
+        return new ethers.JsonRpcProvider(rpc);
+      },
+    },
   ],
 })
 export class BusinessModule {}
