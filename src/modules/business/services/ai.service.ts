@@ -39,7 +39,7 @@ import { KyberProvider } from '@binkai/kyber-provider';
 import { ListaProvider } from '@binkai/lista-provider';
 import { KernelDaoProvider } from '@binkai/kernel-dao-provider';
 import { OkuProvider } from '@binkai/oku-provider';
-
+import { HyperliquidProvider } from '@binkai/hyperliquid-provider';
 // Constants for system prompt - to avoid duplication
 const SYSTEM_PROMPT = `You are a BINK AI assistant. You can help user to query blockchain data. You are able to perform swaps and get token information on multiple chains. If you do not have the token address, you can use the symbol to get the token information before performing a swap.
 
@@ -87,6 +87,9 @@ export class AiService implements OnApplicationBootstrap {
   private bscProvider: JsonRpcProvider;
   private solanaProvider: SolanaProvider;
 
+  @Inject('HYPERLIQUID_CONNECTION')
+  private hyperliquidProvider: JsonRpcProvider;
+
   constructor(@Inject('OPENAI') openai: OpenAI) {
     this.openai = openai;
     this.networks = {
@@ -125,6 +128,19 @@ export class AiService implements OnApplicationBootstrap {
             name: 'Solana',
             symbol: 'SOL',
             decimals: 9,
+          },
+        },
+      },
+      hyperliquid: {
+        type: 'evm' as NetworkType,
+        config: {
+          chainId: 999,
+          rpcUrl: process.env.HYPERLIQUID_RPC || 'https://rpc.hyperliquid.xyz/evm',
+          name: 'Hyperliquid',
+          nativeCurrency: {
+            name: 'Hyperliquid',
+            symbol: 'HYPE',
+            decimals: 18,
           },
         },
       },
@@ -220,6 +236,7 @@ export class AiService implements OnApplicationBootstrap {
 
       // Create and initialize wallet plugin
       const bscChainId = 56;
+      const hyperliquidChainId = 999;
       const pancakeswap = new PancakeSwapProvider(this.bscProvider, bscChainId);
       // const okx = new OkxProvider(this.bscProvider, bscChainId);
       const fourMeme = new FourMemeProvider(this.bscProvider, bscChainId);
@@ -242,18 +259,18 @@ export class AiService implements OnApplicationBootstrap {
       const stakingPlugin = new StakingPlugin();
       const thena = new ThenaProvider(this.bscProvider, bscChainId);
       const lista = new ListaProvider(this.bscProvider, bscChainId);
-
+      const hyperliquid = new HyperliquidProvider(this.hyperliquidProvider, hyperliquidChainId);
       await Promise.all([
         swapPlugin.initialize({
           defaultSlippage: 0.5,
           defaultChain: 'bnb',
-          providers: [pancakeswap, fourMeme, thena, jupiter, oku, kyber],
-          supportedChains: ['bnb', 'ethereum', 'solana'], // These will be intersected with agent's networks
+          providers: [pancakeswap, fourMeme, thena, jupiter, oku, kyber, hyperliquid],
+          supportedChains: ['bnb', 'ethereum', 'solana', 'hyperliquid'], // These will be intersected with agent's networks
         }),
         tokenPlugin.initialize({
           defaultChain: 'bnb',
-          providers: [this.birdeyeApi, fourMeme as any],
-          supportedChains: ['solana', 'bnb', 'ethereum'],
+          providers: [this.birdeyeApi, fourMeme as any, hyperliquid],
+          supportedChains: ['solana', 'bnb', 'ethereum', 'hyperliquid'],
         }),
         await knowledgePlugin.initialize({
           providers: [this.binkProvider],
@@ -275,7 +292,7 @@ export class AiService implements OnApplicationBootstrap {
             this.alchemyApi,
             this.solanaProvider,
           ],
-          supportedChains: ['bnb', 'solana', 'ethereum'],
+          supportedChains: ['bnb', 'solana', 'ethereum', 'hyperliquid'],
         }),
         await stakingPlugin.initialize({
           defaultSlippage: 0.5,
